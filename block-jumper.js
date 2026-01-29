@@ -27,6 +27,7 @@ document.addEventListener('visibilitychange', () => { tabVisible = !document.hid
 // Game state
 let gameState = 'start'; // 'start', 'playing', 'gameOver'
 let score = 0;
+let submittedForThisGameOver = false; // one leaderboard submit per game over
 let lives = 3;
 let level = 1;
 let cameraX = 0;
@@ -681,6 +682,7 @@ function gameOver() {
         if (isNewRecord) newRecordEl.classList.remove('hidden');
         else newRecordEl.classList.add('hidden');
     }
+    submittedForThisGameOver = false;
     if (gameOverEl) gameOverEl.classList.remove('hidden');
 }
 
@@ -1148,7 +1150,7 @@ function renderLeaderboard(scores, currentScore) {
         listEl.appendChild(li);
     });
     const tenthScore = sorted.length >= LEADERBOARD_MAX ? sorted[LEADERBOARD_MAX - 1].score : 0;
-    const canSubmit = typeof currentScore === 'number' && currentScore > 0 && (sorted.length < LEADERBOARD_MAX || currentScore >= tenthScore);
+    const canSubmit = typeof currentScore === 'number' && currentScore > 0 && !submittedForThisGameOver && (sorted.length < LEADERBOARD_MAX || currentScore >= tenthScore);
     if (submitEl) {
         if (canSubmit) {
             submitEl.classList.remove('hidden');
@@ -1214,6 +1216,7 @@ function submitLeaderboardScore() {
         .then(r => r.json().then(data => ({ ok: r.ok, data })))
         .then(({ ok, data }) => {
             if (ok && data && Array.isArray(data.scores)) {
+                submittedForThisGameOver = true;
                 renderLeaderboard(data.scores, null);
                 if (submitEl) submitEl.classList.add('hidden');
             } else {
