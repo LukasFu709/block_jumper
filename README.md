@@ -95,12 +95,15 @@ The game can show a **top 10** leaderboard stored in a public [GitHub Gist](http
 
 1. Go to **[vercel.com](https://vercel.com)** → your project (Block Jumper).
 2. Open **Settings** → **Environment Variables**.
-3. Add two variables (for **Production**, and optionally Preview/Development):
+3. Add three variables (for **Production**, and optionally Preview/Development):
 
    | Name          | Value                    | Sensitive |
    |---------------|--------------------------|-----------|
    | **GIST_ID**   | Your Gist ID (e.g. `00d4ae0850016259ccb202568c85d8e4`) | No        |
    | **GITHUB_TOKEN** | Your token (`ghp_...` or `github_pat_...`) | **Yes** ✓ |
+   | **LEADERBOARD_BLOCKLIST** | Comma-separated words to block in leaderboard names (e.g. `word1,word2,word3`). Keep this list only in Vercel (mark Sensitive). Normalization (3→e, 1→i, etc.) is applied before checking. | **Yes** ✓ |
+
+   The blocklist is never in the repo — only in Vercel. Add or remove words there as needed.
 
 4. Save. **Redeploy** the project (Deployments → … on latest → Redeploy) so the new env vars are used.
 
