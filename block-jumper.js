@@ -1217,10 +1217,11 @@ function submitLeaderboardScore() {
             scores.push(newEntry);
             scores.sort((a, b) => b.score - a.score);
             const newScores = scores.slice(0, LEADERBOARD_MAX);
+            const token = String(LEADERBOARD_GIST_TOKEN).trim();
             return fetch('https://api.github.com/gists/' + LEADERBOARD_GIST_ID, {
                 method: 'PATCH',
                 headers: {
-                    'Authorization': 'Bearer ' + LEADERBOARD_GIST_TOKEN,
+                    'Authorization': 'Bearer ' + token,
                     'Accept': 'application/vnd.github+json',
                     'X-GitHub-Api-Version': '2022-11-28',
                     'Content-Type': 'application/json'
@@ -1230,14 +1231,25 @@ function submitLeaderboardScore() {
                         [LEADERBOARD_FILENAME]: { content: JSON.stringify({ scores: newScores }, null, 2) }
                     }
                 })
-            }).then(r => (r.ok ? { newScores } : r.json().then(d => Promise.reject(new Error(d.message || 'Could not save')))));
+            }).then(r => r.json().then(d => {
+                if (r.ok) return { newScores };
+                const msg = d && d.message ? d.message : 'Could not save';
+                return Promise.reject(new Error(msg));
+            }));
         })
         .then(({ newScores }) => {
             renderLeaderboard(newScores, null);
             if (submitEl) submitEl.classList.add('hidden');
         })
         .catch(err => {
-            if (errorEl) { errorEl.classList.remove('hidden'); errorEl.textContent = err.message || 'Could not submit. Try again.'; }
+            if (errorEl) {
+                errorEl.classList.remove('hidden');
+                let text = err.message || 'Could not submit. Try again.';
+                if (err.message === 'Bad credentials') {
+                    text = 'Bad credentials — check your token: no extra spaces, not expired, and has "gist" scope. Create a new token at github.com/settings/tokens if needed.';
+                }
+                errorEl.textContent = text;
+            }
         })
         .finally(() => { if (submitBtn) submitBtn.disabled = false; });
 }
