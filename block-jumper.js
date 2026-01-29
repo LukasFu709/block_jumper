@@ -46,7 +46,7 @@ let highScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY), 10) || 0;
 
 // Global leaderboard: GitHub Gist. Set both to enable reading and submitting scores (no Vercel config).
 const LEADERBOARD_GIST_ID = '00d4ae0850016259ccb202568c85d8e4';   // Your public Gist ID (from the Gist URL)
-const LEADERBOARD_GIST_TOKEN = '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'; // GitHub Personal Access Token with "gist" scope (so players can submit)
+const LEADERBOARD_GIST_TOKEN = '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'; // GitHub Personal Access Token with "gist" scope (so players can submit)
 const LEADERBOARD_FILENAME = 'highscore.json';
 const LEADERBOARD_MAX = 10;
 
@@ -1221,7 +1221,7 @@ function submitLeaderboardScore() {
             return fetch('https://api.github.com/gists/' + LEADERBOARD_GIST_ID, {
                 method: 'PATCH',
                 headers: {
-                    'Authorization': 'Bearer ' + token,
+                    'Authorization': 'token ' + token,
                     'Accept': 'application/vnd.github+json',
                     'X-GitHub-Api-Version': '2022-11-28',
                     'Content-Type': 'application/json'
