@@ -44,6 +44,12 @@ let midAirJumpCooldownRemaining = 0;
 const HIGH_SCORE_KEY = 'blockJumperHighScore';
 let highScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY), 10) || 0;
 
+// Global leaderboard: GitHub Gist. Set both to enable reading and submitting scores (no Vercel config).
+const LEADERBOARD_GIST_ID = '00d4ae0850016259ccb202568c85d8e4';   // Your public Gist ID (from the Gist URL)
+const LEADERBOARD_GIST_TOKEN = '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'; // GitHub Personal Access Token with "gist" scope (so players can submit)
+const LEADERBOARD_FILENAME = 'highscore.json';
+const LEADERBOARD_MAX = 10;
+
 // Level timer (seconds)
 const MAX_LEVEL_TIME = 100;
 let levelTime = MAX_LEVEL_TIME;
@@ -1102,6 +1108,148 @@ document.getElementById('restartBtn').addEventListener('click', () => {
     document.getElementById('gameOver').classList.add('hidden');
     document.getElementById('startScreen').classList.remove('hidden');
     gameState = 'start';
+});
+
+// --- Global leaderboard (GitHub Gist) ---
+function getLeaderboardScoresFromGist() {
+    if (!LEADERBOARD_GIST_ID) return Promise.resolve([]);
+    return fetch('https://api.github.com/gists/' + LEADERBOARD_GIST_ID)
+        .then(r => r.ok ? r.json() : Promise.reject(new Error('Failed to load leaderboard')))
+        .then(gist => {
+            const file = gist.files && gist.files[LEADERBOARD_FILENAME];
+            if (!file || !file.content) return [];
+            try {
+                const data = JSON.parse(file.content);
+                return Array.isArray(data.scores) ? data.scores : [];
+            } catch (e) { return []; }
+        });
+}
+
+function renderLeaderboard(scores, currentScore) {
+    const listEl = document.getElementById('leaderboardList');
+    const submitEl = document.getElementById('leaderboardSubmit');
+    const nameInput = document.getElementById('leaderboardName');
+    const errorEl = document.getElementById('leaderboardError');
+    const loadingEl = document.getElementById('leaderboardLoading');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    if (errorEl) { errorEl.classList.add('hidden'); errorEl.textContent = ''; }
+    if (loadingEl) loadingEl.classList.add('hidden');
+    const sorted = [...scores].sort((a, b) => (b.score - a.score)).slice(0, LEADERBOARD_MAX);
+    sorted.forEach((entry, i) => {
+        const li = document.createElement('li');
+        li.textContent = '';
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = (entry.name || 'Anonymous').trim() || '—';
+        const scoreSpan = document.createElement('span');
+        scoreSpan.textContent = String(entry.score);
+        scoreSpan.style.color = '#FFD700';
+        li.appendChild(nameSpan);
+        li.appendChild(scoreSpan);
+        listEl.appendChild(li);
+    });
+    const tenthScore = sorted.length >= LEADERBOARD_MAX ? sorted[LEADERBOARD_MAX - 1].score : 0;
+    const canSubmit = typeof currentScore === 'number' && currentScore > 0 && (sorted.length < LEADERBOARD_MAX || currentScore >= tenthScore);
+    if (submitEl) {
+        if (canSubmit) {
+            submitEl.classList.remove('hidden');
+            if (nameInput) nameInput.value = '';
+        } else {
+            submitEl.classList.add('hidden');
+        }
+    }
+}
+
+function openLeaderboard() {
+    const modal = document.getElementById('leaderboardModal');
+    const listEl = document.getElementById('leaderboardList');
+    const loadingEl = document.getElementById('leaderboardLoading');
+    const errorEl = document.getElementById('leaderboardError');
+    const submitEl = document.getElementById('leaderboardSubmit');
+    const localRecordEl = document.getElementById('leaderboardLocalRecordValue');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    if (submitEl) submitEl.classList.add('hidden');
+    if (localRecordEl) localRecordEl.textContent = highScore;
+    if (!LEADERBOARD_GIST_ID) {
+        if (errorEl) { errorEl.classList.remove('hidden'); errorEl.textContent = 'Leaderboard not configured.'; }
+        if (listEl) listEl.innerHTML = '';
+        if (loadingEl) loadingEl.classList.add('hidden');
+        return;
+    }
+    if (loadingEl) { loadingEl.classList.remove('hidden'); loadingEl.textContent = 'Loading…'; }
+    if (errorEl) { errorEl.classList.add('hidden'); }
+    getLeaderboardScoresFromGist()
+        .then(scores => {
+            renderLeaderboard(scores, score);
+        })
+        .catch(err => {
+            if (errorEl) { errorEl.classList.remove('hidden'); errorEl.textContent = err.message || 'Could not load leaderboard.'; }
+            if (listEl) listEl.innerHTML = '';
+            renderLeaderboard([], score);
+        })
+        .finally(() => {
+            if (loadingEl) loadingEl.classList.add('hidden');
+        });
+}
+
+function closeLeaderboard() {
+    const modal = document.getElementById('leaderboardModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function submitLeaderboardScore() {
+    const nameInput = document.getElementById('leaderboardName');
+    const submitBtn = document.getElementById('leaderboardSubmitBtn');
+    const errorEl = document.getElementById('leaderboardError');
+    const submitEl = document.getElementById('leaderboardSubmit');
+    const name = (nameInput && nameInput.value && nameInput.value.trim()) || 'Anonymous';
+    if (!name.trim()) nameInput.value = 'Anonymous';
+    if (!LEADERBOARD_GIST_TOKEN) {
+        if (errorEl) { errorEl.classList.remove('hidden'); errorEl.textContent = 'Submit not configured (missing token).'; }
+        return;
+    }
+    if (errorEl) { errorEl.classList.add('hidden'); errorEl.textContent = ''; }
+    if (submitBtn) submitBtn.disabled = true;
+    const newEntry = { name: name.trim().slice(0, 20), score: score };
+    getLeaderboardScoresFromGist()
+        .then(scores => {
+            scores.push(newEntry);
+            scores.sort((a, b) => b.score - a.score);
+            const newScores = scores.slice(0, LEADERBOARD_MAX);
+            return fetch('https://api.github.com/gists/' + LEADERBOARD_GIST_ID, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': 'Bearer ' + LEADERBOARD_GIST_TOKEN,
+                    'Accept': 'application/vnd.github+json',
+                    'X-GitHub-Api-Version': '2022-11-28',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    files: {
+                        [LEADERBOARD_FILENAME]: { content: JSON.stringify({ scores: newScores }, null, 2) }
+                    }
+                })
+            }).then(r => (r.ok ? { newScores } : r.json().then(d => Promise.reject(new Error(d.message || 'Could not save')))));
+        })
+        .then(({ newScores }) => {
+            renderLeaderboard(newScores, null);
+            if (submitEl) submitEl.classList.add('hidden');
+        })
+        .catch(err => {
+            if (errorEl) { errorEl.classList.remove('hidden'); errorEl.textContent = err.message || 'Could not submit. Try again.'; }
+        })
+        .finally(() => { if (submitBtn) submitBtn.disabled = false; });
+}
+
+document.getElementById('leaderboardBtn').addEventListener('click', openLeaderboard);
+document.getElementById('leaderboardClose').addEventListener('click', closeLeaderboard);
+document.getElementById('leaderboardSubmitBtn').addEventListener('click', submitLeaderboardScore);
+document.getElementById('leaderboardModal').addEventListener('click', (e) => {
+    if (e.target.id === 'leaderboardModal') closeLeaderboard();
+});
+document.getElementById('leaderboardName').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitLeaderboardScore();
 });
 
 // Character select UI

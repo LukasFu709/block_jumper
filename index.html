@@ -34,7 +34,27 @@
             <p>Final Score: <span id="finalScore">0</span></p>
             <p id="newRecordMsg" class="new-record hidden">New record!</p>
             <p class="high-score-line">Record: <span id="highScore">0</span></p>
-            <button id="restartBtn">Play Again</button>
+            <div class="game-over-actions">
+                <button id="restartBtn">Play Again</button>
+                <button type="button" id="leaderboardBtn" class="leaderboard-icon-btn" aria-label="Show top 10 leaderboard" title="Top 10">📋</button>
+            </div>
+        </div>
+        <div id="leaderboardModal" class="leaderboard-modal hidden">
+            <div class="leaderboard-panel">
+                <div class="leaderboard-header">
+                    <h3>Top 10</h3>
+                    <button type="button" id="leaderboardClose" class="leaderboard-close" aria-label="Close">×</button>
+                </div>
+                <ol id="leaderboardList" class="leaderboard-list"></ol>
+                <div id="leaderboardSubmit" class="leaderboard-submit hidden">
+                    <p class="leaderboard-submit-msg">You made the top 10! Enter your name:</p>
+                    <input type="text" id="leaderboardName" class="leaderboard-name-input" maxlength="20" placeholder="Your name">
+                    <button type="button" id="leaderboardSubmitBtn">Submit</button>
+                </div>
+                <p id="leaderboardError" class="leaderboard-error hidden"></p>
+                <p id="leaderboardLoading" class="leaderboard-loading hidden">Loading…</p>
+                <p id="leaderboardLocalRecord" class="leaderboard-local-record">Your local record: <span id="leaderboardLocalRecordValue">0</span></p>
+            </div>
         </div>
         <div id="startScreen" class="start-screen">
             <h1>Block Jumper's Adventure</h1>
