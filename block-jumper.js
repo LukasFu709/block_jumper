@@ -44,9 +44,8 @@ let midAirJumpCooldownRemaining = 0;
 const HIGH_SCORE_KEY = 'blockJumperHighScore';
 let highScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY), 10) || 0;
 
-// Global leaderboard: GitHub Gist. Set both to enable reading and submitting scores (no Vercel config).
+// Global leaderboard: GitHub Gist. Gist ID is in code (public). Token lives in Vercel env only — never commit it.
 const LEADERBOARD_GIST_ID = '00d4ae0850016259ccb202568c85d8e4';   // Your public Gist ID (from the Gist URL)
-const LEADERBOARD_GIST_TOKEN = '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'; // GitHub Personal Access Token with "gist" scope (so players can submit)
 const LEADERBOARD_FILENAME = 'highscore.json';
 const LEADERBOARD_MAX = 10;
 
@@ -1205,51 +1204,29 @@ function submitLeaderboardScore() {
     const submitEl = document.getElementById('leaderboardSubmit');
     const name = (nameInput && nameInput.value && nameInput.value.trim()) || 'Anonymous';
     if (!name.trim()) nameInput.value = 'Anonymous';
-    if (!LEADERBOARD_GIST_TOKEN) {
-        if (errorEl) { errorEl.classList.remove('hidden'); errorEl.textContent = 'Submit not configured (missing token).'; }
-        return;
-    }
     if (errorEl) { errorEl.classList.add('hidden'); errorEl.textContent = ''; }
     if (submitBtn) submitBtn.disabled = true;
-    const newEntry = { name: name.trim().slice(0, 20), score: score };
-    getLeaderboardScoresFromGist()
-        .then(scores => {
-            scores.push(newEntry);
-            scores.sort((a, b) => b.score - a.score);
-            const newScores = scores.slice(0, LEADERBOARD_MAX);
-            const token = String(LEADERBOARD_GIST_TOKEN).trim();
-            return fetch('https://api.github.com/gists/' + LEADERBOARD_GIST_ID, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': 'Bearer ' + token,
-                    'Accept': 'application/vnd.github+json',
-                    'X-GitHub-Api-Version': '2022-11-28',
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'BlockJumperLeaderboard/1.0'
-                },
-                body: JSON.stringify({
-                    files: {
-                        [LEADERBOARD_FILENAME]: { content: JSON.stringify({ scores: newScores }, null, 2) }
-                    }
-                })
-            }).then(r => r.json().then(d => {
-                if (r.ok) return { newScores };
-                const msg = d && d.message ? d.message : 'Could not save';
-                return Promise.reject(new Error(msg));
-            }));
+    fetch('/api/submit-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim().slice(0, 20), score: score })
+    })
+        .then(r => r.json().then(data => ({ ok: r.ok, data })))
+        .then(({ ok, data }) => {
+            if (ok && data && Array.isArray(data.scores)) {
+                renderLeaderboard(data.scores, null);
+                if (submitEl) submitEl.classList.add('hidden');
+            } else {
+                if (errorEl) {
+                    errorEl.classList.remove('hidden');
+                    errorEl.textContent = (data && data.error) || 'Could not submit. Try again.';
+                }
+            }
         })
-        .then(({ newScores }) => {
-            renderLeaderboard(newScores, null);
-            if (submitEl) submitEl.classList.add('hidden');
-        })
-        .catch(err => {
+        .catch(() => {
             if (errorEl) {
                 errorEl.classList.remove('hidden');
-                let text = err.message || 'Could not submit. Try again.';
-                if (err.message === 'Bad credentials') {
-                    text = 'Bad credentials — try a fine-grained token: github.com/settings/tokens → Fine-grained → Generate new. Set Account permissions: Gists = Read and write. Use that token here.';
-                }
-                errorEl.textContent = text;
+                errorEl.textContent = 'Could not submit. Try again.';
             }
         })
         .finally(() => { if (submitBtn) submitBtn.disabled = false; });

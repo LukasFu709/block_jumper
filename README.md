@@ -58,63 +58,60 @@ No build step required — plain HTML, CSS, and JavaScript.
 
 ## Global leaderboard (GitHub Gist)
 
-The game can show a **top 10** leaderboard shared by all players, stored in a public [GitHub Gist](https://gist.github.com/). No Vercel or server config needed — everything is set in the code.
-
-Follow these steps once; then the leaderboard works for everyone.
+The game can show a **top 10** leaderboard stored in a public [GitHub Gist](https://gist.github.com/). The **Gist ID** lives in the code (safe to commit). The **token** lives only in **Vercel Environment Variables** — so GitHub won’t see it in the repo and won’t revoke it.
 
 ---
 
 ### Step 1: Create the Gist
 
-1. Open **[gist.github.com](https://gist.github.com/)** in your browser and sign in to GitHub (or create an account).
-2. You’ll see:
-   - **Filename:** type exactly: `highscore.json`
-   - **Content:** type exactly: `{"scores":[]}`
-3. Choose **“Create public gist”** (not “Create secret gist”).
-4. Click **“Create public gist”**.
-5. After it’s created, look at the URL in the address bar. It will look like:
-   - `https://gist.github.com/YourUsername/`**`a1b2c3d4e5f6...`**
-   The part after the last `/` is your **Gist ID**. Copy it (e.g. `a1b2c3d4e5f6789...`) — you’ll paste it into the game in Step 3.
+1. Open **[gist.github.com](https://gist.github.com/)** and sign in.
+2. **Filename:** `highscore.json`  
+   **Content:** `{"scores":[]}`
+3. Click **“Create public gist”**.
+4. Copy the **Gist ID** from the URL (the part after the last `/`, e.g. `00d4ae0850016259ccb202568c85d8e4`).
 
 ---
 
-### Step 2: Create a Personal Access Token (so the game can save scores)
+### Step 2: Put the Gist ID in the game
 
-1. Open **[GitHub → Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens)**.
-   - Or: click your profile picture (top right) → **Settings** → left sidebar **Developer settings** → **Personal access tokens**.
-2. Click **“Tokens (classic)”** (or “Fine-grained tokens” if you prefer).
-3. Click **“Generate new token”** / **“Generate new token (classic)”**.
-4. Give it a name, e.g. **Block Jumper leaderboard**.
-5. Set an expiration if you want (e.g. 90 days, or “No expiration” for simplicity).
-6. Under **Scopes**, tick only **`gist`** (so the token can only manage Gists, nothing else).
-7. Click **“Generate token”**.
-8. **Copy the token immediately** (it starts with `ghp_`). You won’t see it again. You’ll paste it into the game in Step 3.
+1. Open **`block-jumper.js`** and find:
+   ```js
+   const LEADERBOARD_GIST_ID = '00d4ae0850016259ccb202568c85d8e4';
+   ```
+2. Replace the value with your Gist ID if it’s different. Save. This is safe to commit.
 
 ---
 
-### Step 3: Put the Gist ID and token into the game
+### Step 3: Create a GitHub token (for the server only)
 
-1. Open **`block-jumper.js`** in your editor.
-2. Near the top, find these two lines:
-   ```js
-   const LEADERBOARD_GIST_ID = '';   // Your public Gist ID (from the Gist URL)
-   const LEADERBOARD_GIST_TOKEN = ''; // GitHub Personal Access Token with "gist" scope
-   ```
-3. Replace them with your values (keep the quotes):
-   ```js
-   const LEADERBOARD_GIST_ID = 'a1b2c3d4e5f6789...';   // paste your Gist ID here
-   const LEADERBOARD_GIST_TOKEN = 'ghp_xxxxxxxx...';    // paste your token here
-   ```
-4. Save the file.
+1. Go to **[github.com/settings/tokens](https://github.com/settings/tokens)**.
+2. **Classic:** “Generate new token (classic)” → tick only **gist** → Generate → copy the token (`ghp_...`).  
+   **Or fine-grained:** “Fine-grained tokens” → Generate new → **Account permissions** → **Gists** = **Read and write** → Generate → copy the token (`github_pat_...`).
+3. **Do not** put this token in the code or in the repo.
+
+---
+
+### Step 4: Add the token as a Vercel secret
+
+1. Go to **[vercel.com](https://vercel.com)** → your project (Block Jumper).
+2. Open **Settings** → **Environment Variables**.
+3. Add two variables (for **Production**, and optionally Preview/Development):
+
+   | Name          | Value                    | Sensitive |
+   |---------------|--------------------------|-----------|
+   | **GIST_ID**   | Your Gist ID (e.g. `00d4ae0850016259ccb202568c85d8e4`) | No        |
+   | **GITHUB_TOKEN** | Your token (`ghp_...` or `github_pat_...`) | **Yes** ✓ |
+
+4. Save. **Redeploy** the project (Deployments → … on latest → Redeploy) so the new env vars are used.
 
 ---
 
 ### Done
 
-- **Gist ID** is public and safe to commit.
-- **Token** is visible to anyone who views the page source. Use a token with only `gist` scope (as above). If the repo is public, you can use a separate GitHub account for the leaderboard to limit risk.
+- The game **reads** the leaderboard from the Gist (no token needed; Gist ID is in the code).
+- When a player submits a score, the **browser** calls **`/api/submit-score`** (your Vercel serverless function). The **server** uses **GITHUB_TOKEN** from the env to update the Gist. The token never appears in the repo or in the browser.
 
-After that, the top 10 list loads from the Gist, and when a player makes the top 10 and enters their name, the score is saved and the leaderboard updates for everyone.
+Leaderboard and submit will work only when the game is deployed on Vercel (or another host that runs the `api/` route). Locally, the list still loads, but submit will fail unless you run a local server that implements `/api/submit-score`.
 
 ---
 
@@ -122,10 +119,12 @@ After that, the top 10 list loads from the Gist, and when a player makes the top
 
 ```
 block_jumper-main/
-├── index.html       # Main page
-├── block-jumper.js  # Game logic & canvas
-├── block-jumper.css # Styles & layout
-├── qrcode.png       # QR code to open the game
+├── api/
+│   └── submit-score.js   # Vercel serverless: updates leaderboard Gist (uses GIST_ID + GITHUB_TOKEN from env)
+├── index.html            # Main page
+├── block-jumper.js       # Game logic & canvas
+├── block-jumper.css      # Styles & layout
+├── qrcode.png            # QR code to open the game
 └── README.md
 ```
 
