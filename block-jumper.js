@@ -1219,8 +1219,11 @@ function submitLeaderboardScore() {
             } else {
                 if (errorEl) {
                     errorEl.classList.remove('hidden');
-                    errorEl.textContent = (data && data.error) || 'Could not submit. Try again.';
+                    const msg = (data && data.error) || 'Could not submit. Try again.';
+                    errorEl.textContent = msg === 'Please choose a different name.' ? msg + ' Edit your name above and click Submit again.' : msg;
                 }
+                if (submitBtn) submitBtn.disabled = false;
+                if (nameInput) { nameInput.focus(); nameInput.select(); }
             }
         })
         .catch(() => {
@@ -1228,6 +1231,7 @@ function submitLeaderboardScore() {
                 errorEl.classList.remove('hidden');
                 errorEl.textContent = 'Could not submit. Try again.';
             }
+            if (submitBtn) submitBtn.disabled = false;
         })
         .finally(() => { if (submitBtn) submitBtn.disabled = false; });
 }

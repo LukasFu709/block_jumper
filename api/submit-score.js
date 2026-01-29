@@ -26,7 +26,7 @@ async function isProfane(text) {
     const data = await res.json();
     return data.isProfanity === true;
   } catch (e) {
-    return false; // on API failure, allow the name (don't block submissions)
+    return false; // on API failure, allow (don't block all submissions)
   }
 }
 
