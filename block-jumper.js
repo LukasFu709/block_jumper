@@ -46,7 +46,7 @@ let highScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY), 10) || 0;
 
 // Global leaderboard: GitHub Gist. Set both to enable reading and submitting scores (no Vercel config).
 const LEADERBOARD_GIST_ID = '00d4ae0850016259ccb202568c85d8e4';   // Your public Gist ID (from the Gist URL)
-const LEADERBOARD_GIST_TOKEN = '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'; // GitHub Personal Access Token with "gist" scope (so players can submit)
+const LEADERBOARD_GIST_TOKEN = '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'; // GitHub Personal Access Token with "gist" scope (so players can submit)
 const LEADERBOARD_FILENAME = 'highscore.json';
 const LEADERBOARD_MAX = 10;
 
@@ -1221,10 +1221,11 @@ function submitLeaderboardScore() {
             return fetch('https://api.github.com/gists/' + LEADERBOARD_GIST_ID, {
                 method: 'PATCH',
                 headers: {
-                    'Authorization': 'token ' + token,
+                    'Authorization': 'Bearer ' + token,
                     'Accept': 'application/vnd.github+json',
                     'X-GitHub-Api-Version': '2022-11-28',
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'BlockJumperLeaderboard/1.0'
                 },
                 body: JSON.stringify({
                     files: {
@@ -1246,7 +1247,7 @@ function submitLeaderboardScore() {
                 errorEl.classList.remove('hidden');
                 let text = err.message || 'Could not submit. Try again.';
                 if (err.message === 'Bad credentials') {
-                    text = 'Bad credentials — check your token: no extra spaces, not expired, and has "gist" scope. Create a new token at github.com/settings/tokens if needed.';
+                    text = 'Bad credentials — try a fine-grained token: github.com/settings/tokens → Fine-grained → Generate new. Set Account permissions: Gists = Read and write. Use that token here.';
                 }
                 errorEl.textContent = text;
             }
