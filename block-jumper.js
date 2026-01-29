@@ -4,6 +4,26 @@ const ctx = canvas.getContext('2d');
 canvas.width = 800;
 canvas.height = 400;
 
+// Cached DOM refs (avoid getElementById every frame)
+let domScore, domLives, domLevel, domTime, domProgressBar;
+function cacheDOMElements() {
+    domScore = document.getElementById('score');
+    domLives = document.getElementById('lives');
+    domLevel = document.getElementById('level');
+    domTime = document.getElementById('time');
+    domProgressBar = document.getElementById('levelProgressBar');
+}
+
+// Viewport culling: only draw objects in view (reduces draw calls on long levels)
+const VIEW_MARGIN = 80;
+function inView(x, width) {
+    return x + width >= cameraX - VIEW_MARGIN && x <= cameraX + canvas.width + VIEW_MARGIN;
+}
+
+// Pause game loop when tab is hidden (saves CPU/battery)
+let tabVisible = !document.hidden;
+document.addEventListener('visibilitychange', () => { tabVisible = !document.hidden; });
+
 // Game state
 let gameState = 'start'; // 'start', 'playing', 'gameOver'
 let score = 0;
@@ -19,6 +39,10 @@ let chargedJumpUsed = false; // One mid-air jump per time in air
 let skipAirJumpThisFrame = false; // Don't air-jump same frame as ground jump (so hold = double jump)
 const MID_AIR_JUMP_COOLDOWN = 12.5; // seconds
 let midAirJumpCooldownRemaining = 0;
+
+// High score (persisted in localStorage)
+const HIGH_SCORE_KEY = 'blockJumperHighScore';
+let highScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY), 10) || 0;
 
 // Level timer (seconds)
 const MAX_LEVEL_TIME = 100;
@@ -225,6 +249,39 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('keyup', (e) => {
     keys[e.key] = false;
 });
+
+// Touch/on-screen controls: set keys like keyboard so same movement logic applies
+function setupTouchControls() {
+    const btnLeft = document.getElementById('btnLeft');
+    const btnRight = document.getElementById('btnRight');
+    const btnJump = document.getElementById('btnJump');
+    if (!btnLeft || !btnRight || !btnJump) return;
+
+    function setKey(key, value) {
+        keys[key] = value;
+    }
+    function prevent(e) {
+        e.preventDefault();
+    }
+
+    [btnLeft, btnRight].forEach((btn, i) => {
+        const key = i === 0 ? 'ArrowLeft' : 'ArrowRight';
+        btn.addEventListener('touchstart', (e) => { prevent(e); setKey(key, true); }, { passive: false });
+        btn.addEventListener('touchend', (e) => { prevent(e); setKey(key, false); }, { passive: false });
+        btn.addEventListener('mousedown', () => setKey(key, true));
+        btn.addEventListener('mouseup', () => setKey(key, false));
+        btn.addEventListener('mouseleave', () => setKey(key, false));
+    });
+    // Jump button = Space + M so one button does normal jump and mid-air jump
+    function jumpDown() { setKey(' ', true); setKey('M', true); }
+    function jumpUp() { setKey(' ', false); setKey('M', false); }
+    btnJump.addEventListener('touchstart', (e) => { prevent(e); jumpDown(); }, { passive: false });
+    btnJump.addEventListener('touchend', (e) => { prevent(e); jumpUp(); }, { passive: false });
+    btnJump.addEventListener('mousedown', jumpDown);
+    btnJump.addEventListener('mouseup', jumpUp);
+    btnJump.addEventListener('mouseleave', jumpUp);
+}
+setupTouchControls();
 
 // Collision detection
 function checkCollision(rect1, rect2) {
@@ -543,7 +600,7 @@ function updateEnemies() {
                     player.speedY = -8;
                     score += type === 'jumper' ? 120 : 100;
                 }
-                document.getElementById('score').textContent = score;
+                if (domScore) domScore.textContent = score;
                 checkLifeBonus();
             } else {
                 // Player hit by enemy; tank only damages when player overlaps inner hitbox (so stomping from edge works)
@@ -565,7 +622,7 @@ function checkLifeBonus() {
     if (currentBonusLevel > lastBonusLevel && currentBonusLevel > 0) {
         lives++;
         lastLifeBonusScore = score;
-        document.getElementById('lives').textContent = lives;
+        if (domLives) domLives.textContent = lives;
     }
 }
 
@@ -575,7 +632,7 @@ function updateCoins() {
         if (!coin.collected && checkCollision(player, coin)) {
             coin.collected = true;
             score += coin.points || 50;
-            document.getElementById('score').textContent = score;
+            if (domScore) domScore.textContent = score;
             checkLifeBonus();
         }
     }
@@ -586,7 +643,7 @@ function takeDamage() {
     if (invulnerable) return; // Already invulnerable
     
     lives--;
-    document.getElementById('lives').textContent = lives;
+    if (domLives) domLives.textContent = lives;
     
     // Make player invulnerable
     invulnerable = true;
@@ -604,8 +661,22 @@ function takeDamage() {
 // Game over
 function gameOver() {
     gameState = 'gameOver';
-    document.getElementById('finalScore').textContent = score;
-    document.getElementById('gameOver').classList.remove('hidden');
+    const finalScoreEl = document.getElementById('finalScore');
+    const highScoreEl = document.getElementById('highScore');
+    const newRecordEl = document.getElementById('newRecordMsg');
+    const gameOverEl = document.getElementById('gameOver');
+    if (finalScoreEl) finalScoreEl.textContent = score;
+    const isNewRecord = score > highScore;
+    if (isNewRecord) {
+        highScore = score;
+        try { localStorage.setItem(HIGH_SCORE_KEY, String(highScore)); } catch (e) {}
+    }
+    if (highScoreEl) highScoreEl.textContent = highScore;
+    if (newRecordEl) {
+        if (isNewRecord) newRecordEl.classList.remove('hidden');
+        else newRecordEl.classList.add('hidden');
+    }
+    if (gameOverEl) gameOverEl.classList.remove('hidden');
 }
 
 // Draw functions
@@ -638,9 +709,9 @@ function drawPlayer() {
 function drawPlatforms() {
     ctx.save();
     ctx.translate(-cameraX, 0);
-    
     const night = isNightLevel();
     for (let platform of platforms) {
+        if (!inView(platform.x, platform.width)) continue;
         ctx.fillStyle = night ? '#3d2914' : '#8B4513';
         ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
         ctx.fillStyle = night ? '#1a3d1a' : '#228B22';
@@ -649,16 +720,14 @@ function drawPlatforms() {
         ctx.lineWidth = 2;
         ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
     }
-    
     ctx.restore();
 }
 
 function drawEnemies() {
     ctx.save();
     ctx.translate(-cameraX, 0);
-    
     for (let enemy of enemies) {
-        // Enemy body
+        if (!inView(enemy.x, enemy.width)) continue;
         ctx.fillStyle = enemy.color;
         ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
         
@@ -682,7 +751,8 @@ function drawCoins() {
     const time = Date.now() * 0.01;
     
     for (let coin of coins) {
-        if (!coin.collected) {
+        if (coin.collected || !inView(coin.x, coin.width)) continue;
+        {
             const isBig = (coin.points || 50) === 125;
             ctx.save();
             ctx.translate(coin.x + coin.width / 2, coin.y + coin.height / 2);
@@ -824,8 +894,11 @@ function drawMidAirJumpCooldown() {
 
 // Game loop
 function gameLoop() {
+    if (!tabVisible) {
+        requestAnimationFrame(gameLoop);
+        return;
+    }
     if (gameState === 'playing') {
-        // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         // Draw background
@@ -834,16 +907,11 @@ function gameLoop() {
         // Update level timer
         levelTime -= 1 / 60;
         if (levelTime < 0) levelTime = 0;
-        const timeElement = document.getElementById('time');
-        if (timeElement) {
-            timeElement.textContent = Math.ceil(levelTime).toString();
-        }
+        if (domTime) domTime.textContent = Math.ceil(levelTime).toString();
 
         // Update level progress bar
-        const progressBar = document.getElementById('levelProgressBar');
-        if (progressBar) {
-            const progress = Math.min(100, (player.x / LEVEL_END) * 100);
-            progressBar.style.width = progress + '%';
+        if (domProgressBar) {
+            domProgressBar.style.width = Math.min(100, (player.x / LEVEL_END) * 100) + '%';
         }
 
         // If time runs out, the player loses a life and respawns
@@ -869,7 +937,7 @@ function gameLoop() {
         // Check if player reached end
         if (player.x > LEVEL_END) {
             level++;
-            document.getElementById('level').textContent = level;
+            if (domLevel) domLevel.textContent = level;
             // Reset for next level
             player.x = 50;
             player.y = 300;
@@ -1023,13 +1091,10 @@ document.getElementById('startBtn').addEventListener('click', () => {
     initializeGameData();
     
     // Update UI
-    document.getElementById('score').textContent = score;
-    document.getElementById('lives').textContent = lives;
-    document.getElementById('level').textContent = level;
-    const timeElement = document.getElementById('time');
-    if (timeElement) {
-        timeElement.textContent = Math.ceil(levelTime).toString();
-    }
+    if (domScore) domScore.textContent = score;
+    if (domLives) domLives.textContent = lives;
+    if (domLevel) domLevel.textContent = level;
+    if (domTime) domTime.textContent = Math.ceil(levelTime).toString();
 });
 
 // Restart game
@@ -1071,6 +1136,7 @@ document.getElementById('charNextBtn').addEventListener('click', () => {
 });
 
 // Initialize game data on page load
+cacheDOMElements();
 initializeGameData();
 updateCharacterSelectUI();
 

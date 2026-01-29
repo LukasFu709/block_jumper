@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Block Jumper's Adventure – a browser platformer. Jump, collect coins, avoid enemies. Play as Blox, Verd, or Amber.">
     <title>Block Jumper's Adventure</title>
     <link rel="stylesheet" href="block-jumper.css">
 </head>
@@ -23,9 +24,16 @@
             <div class="level-progress-bar" id="levelProgressBar"></div>
         </div>
         <canvas id="gameCanvas"></canvas>
+        <div id="touchControls" class="touch-controls" aria-hidden="true">
+            <button type="button" id="btnLeft" class="touch-btn touch-left" aria-label="Move left">←</button>
+            <button type="button" id="btnRight" class="touch-btn touch-right" aria-label="Move right">→</button>
+            <button type="button" id="btnJump" class="touch-btn touch-jump" aria-label="Jump">↑</button>
+        </div>
         <div id="gameOver" class="game-over hidden">
             <h2>Game Over!</h2>
             <p>Final Score: <span id="finalScore">0</span></p>
+            <p id="newRecordMsg" class="new-record hidden">New record!</p>
+            <p class="high-score-line">Record: <span id="highScore">0</span></p>
             <button id="restartBtn">Play Again</button>
         </div>
         <div id="startScreen" class="start-screen">
@@ -37,11 +45,11 @@
                 <button type="button" id="charNextBtn" aria-label="Next character">▶</button>
                 <div id="characterPreview" class="character-preview"></div>
             </div>
-            <p>Use arrow keys to move, Space to jump</p>
+            <p>Desktop: arrow keys or A/D, Space to jump. Mobile: use on-screen buttons.</p>
             <p>Avoid enemies and collect coins!</p>
             <button id="startBtn">Start Game</button>
         </div>
     </div>
-    <script src="block-jumper.js"></script>
+    <script src="block-jumper.js" defer></script>
 </body>
 </html>
