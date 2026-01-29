@@ -11,6 +11,25 @@
 const LEADERBOARD_FILENAME = 'highscore.json';
 const LEADERBOARD_MAX = 10;
 
+// Profanity check via profanity.dev API (free, no key required)
+const PROFANITY_API_URL = 'https://vector.profanity.dev';
+
+async function isProfane(text) {
+  if (!text || text.length > 1000) return false;
+  try {
+    const res = await fetch(PROFANITY_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data.isProfanity === true;
+  } catch (e) {
+    return false; // on API failure, allow the name (don't block submissions)
+  }
+}
+
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -43,6 +62,11 @@ module.exports = async function handler(req, res) {
     score = Math.max(0, parseInt(body.score, 10) || 0);
   } catch (e) {
     res.status(400).json({ error: 'Invalid body' });
+    return;
+  }
+
+  if (await isProfane(name)) {
+    res.status(400).json({ error: 'Please choose a different name.' });
     return;
   }
 
