@@ -1114,7 +1114,8 @@ document.getElementById('restartBtn').addEventListener('click', () => {
 // --- Global leaderboard (GitHub Gist) ---
 function getLeaderboardScoresFromGist() {
     if (!LEADERBOARD_GIST_ID) return Promise.resolve([]);
-    return fetch('https://api.github.com/gists/' + LEADERBOARD_GIST_ID)
+    const url = 'https://api.github.com/gists/' + LEADERBOARD_GIST_ID + '?_=' + Date.now();
+    return fetch(url, { cache: 'no-store' })
         .then(r => r.ok ? r.json() : Promise.reject(new Error('Failed to load leaderboard')))
         .then(gist => {
             const file = gist.files && gist.files[LEADERBOARD_FILENAME];
