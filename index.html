@@ -23,10 +23,13 @@
         <div class="level-progress-container">
             <div class="level-progress-bar" id="levelProgressBar"></div>
         </div>
-        <canvas id="gameCanvas"></canvas>
+        <div class="game-canvas-wrap">
+            <canvas id="gameCanvas"></canvas>
+        </div>
         <div id="touchControls" class="touch-controls" aria-hidden="true">
             <button type="button" id="btnLeft" class="touch-btn touch-left" aria-label="Move left">←</button>
             <button type="button" id="btnRight" class="touch-btn touch-right" aria-label="Move right">→</button>
+            <button type="button" id="btnAirJump" class="touch-btn touch-air-jump" aria-label="Mid-air jump">↑↑</button>
             <button type="button" id="btnJump" class="touch-btn touch-jump" aria-label="Jump">↑</button>
         </div>
         <div id="gameOver" class="game-over hidden">

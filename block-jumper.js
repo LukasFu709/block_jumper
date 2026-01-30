@@ -278,14 +278,23 @@ function setupTouchControls() {
         btn.addEventListener('mouseup', () => setKey(key, false));
         btn.addEventListener('mouseleave', () => setKey(key, false));
     });
-    // Jump button = Space + M so one button does normal jump and mid-air jump
-    function jumpDown() { setKey(' ', true); setKey('M', true); }
-    function jumpUp() { setKey(' ', false); setKey('M', false); }
+    // Jump button = normal jump only (Space)
+    function jumpDown() { setKey(' ', true); }
+    function jumpUp() { setKey(' ', false); }
     btnJump.addEventListener('touchstart', (e) => { prevent(e); jumpDown(); }, { passive: false });
     btnJump.addEventListener('touchend', (e) => { prevent(e); jumpUp(); }, { passive: false });
     btnJump.addEventListener('mousedown', jumpDown);
     btnJump.addEventListener('mouseup', jumpUp);
     btnJump.addEventListener('mouseleave', jumpUp);
+    // Mid-air jump button (mobile): M key only
+    const btnAirJump = document.getElementById('btnAirJump');
+    if (btnAirJump) {
+        btnAirJump.addEventListener('touchstart', (e) => { prevent(e); setKey('M', true); }, { passive: false });
+        btnAirJump.addEventListener('touchend', (e) => { prevent(e); setKey('M', false); }, { passive: false });
+        btnAirJump.addEventListener('mousedown', () => setKey('M', true));
+        btnAirJump.addEventListener('mouseup', () => setKey('M', false));
+        btnAirJump.addEventListener('mouseleave', () => setKey('M', false));
+    }
 }
 setupTouchControls();
 
