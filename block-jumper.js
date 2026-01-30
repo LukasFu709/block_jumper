@@ -38,6 +38,7 @@ let lastLifeBonusScore = 0; // Track last score that gave a life bonus
 let jumpButtonHeld = false; // Track if jump button was held last frame
 let chargedJumpUsed = false; // One mid-air jump per time in air
 let skipAirJumpThisFrame = false; // Don't air-jump same frame as ground jump (so hold = double jump)
+let currentJumpIsMidAir = false; // If true, don't apply variable-height cut on release (so tap = full height on mobile)
 const MID_AIR_JUMP_COOLDOWN = 12.5; // seconds
 let midAirJumpCooldownRemaining = 0;
 
@@ -329,6 +330,7 @@ function updatePlayer() {
         canJump = false;
         jumpButtonHeld = true;
         chargedJumpUsed = false;
+        currentJumpIsMidAir = false;
         skipAirJumpThisFrame = true; // Don't trigger air jump same frame (so hold = double jump next frame)
     }
 
@@ -342,11 +344,12 @@ function updatePlayer() {
         player.speedY = JUMP_STRENGTH;
         chargedJumpUsed = true;
         jumpButtonHeld = true;
+        currentJumpIsMidAir = true; // Don't apply variable-height cut on release (tap = full height on mobile)
         midAirJumpCooldownRemaining = MID_AIR_JUMP_COOLDOWN;
     }
 
-    // Variable jump height - if player releases jump button while moving up, reduce jump height
-    if (jumpButtonHeld && !jumpPressed && player.speedY < 0) {
+    // Variable jump height - if player releases jump button while moving up, reduce jump height (ground jump only; mid-air stays full height for tap)
+    if (jumpButtonHeld && !jumpPressed && player.speedY < 0 && !currentJumpIsMidAir) {
         player.speedY *= 0.4; // Cut jump velocity significantly when released early
     }
 
@@ -387,6 +390,7 @@ function updatePlayer() {
                 player.onGround = true;
                 jumpButtonHeld = false;
                 chargedJumpUsed = false; // Allow charged jump again after landing
+                currentJumpIsMidAir = false;
             }
             // Hitting platform from below
             else if (minOverlap === overlapBottom && player.speedY < 0) {
@@ -465,6 +469,7 @@ function respawnOnNearestPlatform() {
     player.onGround = true;
     jumpButtonHeld = false;
     chargedJumpUsed = false;
+    currentJumpIsMidAir = false;
 
     cameraX = Math.max(0, player.x - canvas.width / 3);
 }
@@ -1088,6 +1093,7 @@ document.getElementById('startBtn').addEventListener('click', () => {
     levelTime = MAX_LEVEL_TIME;
     chargedJumpUsed = false;
     skipAirJumpThisFrame = false;
+    currentJumpIsMidAir = false;
     midAirJumpCooldownRemaining = 0;
 
     // Apply selected character

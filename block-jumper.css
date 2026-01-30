@@ -201,8 +201,64 @@ body {
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 .start-screen, .game-over {
-    max-width: 92vw;
-    padding: 24px 20px;
+    max-width: min(92vw, 420px);
+    padding: clamp(12px, 4vw, 24px) clamp(12px, 4vw, 20px);
+    max-height: 85vh;
+    max-height: 85dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Start screen / game-over scale on small screens */
+@media (max-width: 480px) {
+    .start-screen, .game-over {
+        max-width: calc(100vw - 24px);
+        padding: 16px 12px;
+    }
+    .game-over h2, .start-screen h1 {
+        font-size: clamp(20px, 6vw, 28px);
+        margin-bottom: 12px;
+    }
+    .game-over p, .start-screen p {
+        font-size: clamp(14px, 4vw, 18px);
+        margin: 8px 0;
+    }
+    .character-select {
+        gap: 8px;
+        margin: 12px 0;
+    }
+    .character-name {
+        min-width: 80px;
+        font-size: clamp(14px, 4vw, 16px);
+    }
+    .character-select button {
+        padding: 6px 10px;
+        font-size: 14px;
+    }
+    .start-screen #startBtn,
+    .game-over-actions button {
+        padding: 10px 20px;
+        font-size: 16px;
+        margin-top: 12px;
+    }
+    .character-preview {
+        height: 40px;
+    }
+    .character-preview .char-box {
+        width: 28px;
+        height: 34px;
+    }
+    .high-score-line, .game-over p {
+        font-size: clamp(14px, 4vw, 18px);
+    }
+    #finalScore {
+        font-size: clamp(18px, 5vw, 24px);
+    }
+    .leaderboard-icon-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 22px;
+    }
 }
 
 .character-select {
@@ -253,8 +309,8 @@ body {
 
 .game-over p,
 .start-screen p {
-    font-size: 18px;
-    margin: 10px 0;
+    font-size: clamp(14px, 4.5vw, 18px);
+    margin: clamp(6px, 2vw, 10px) 0;
 }
 
 #finalScore {
