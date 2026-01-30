@@ -42,6 +42,12 @@ let currentJumpIsMidAir = false; // If true, don't apply variable-height cut on 
 const MID_AIR_JUMP_COOLDOWN = 12.5; // seconds
 let midAirJumpCooldownRemaining = 0;
 
+// Fixed timestep: same speed on every device (60 physics steps per second)
+const FIXED_DT = 1 / 60;
+const MAX_PHYSICS_STEPS = 4; // cap steps per frame to avoid spiral of death
+let lastFrameTime = 0;
+let accumulatedTime = 0;
+
 // High score (persisted in localStorage)
 const HIGH_SCORE_KEY = 'blockJumperHighScore';
 let highScore = parseInt(localStorage.getItem(HIGH_SCORE_KEY), 10) || 0;
@@ -920,20 +926,17 @@ function gameLoop() {
         return;
     }
     if (gameState === 'playing') {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw background
-        drawBackground();
-        
-        // Update level timer
-        levelTime -= 1 / 60;
+        // Delta time: same speed on every device (fixed timestep physics)
+        const now = performance.now();
+        const dt = lastFrameTime === 0 ? FIXED_DT : Math.min((now - lastFrameTime) / 1000, 0.1);
+        lastFrameTime = now;
+
+        accumulatedTime += dt;
+
+        // Level timer uses real time (seconds)
+        levelTime -= dt;
         if (levelTime < 0) levelTime = 0;
         if (domTime) domTime.textContent = Math.ceil(levelTime).toString();
-
-        // Update level progress bar
-        if (domProgressBar) {
-            domProgressBar.style.width = Math.min(100, (player.x / LEVEL_END) * 100) + '%';
-        }
 
         // If time runs out, the player loses a life and respawns
         if (levelTime <= 0 && !invulnerable) {
@@ -942,19 +945,31 @@ function gameLoop() {
             levelTime = MAX_LEVEL_TIME;
         }
 
-        // Update game objects
-        updatePlatforms();
-        updatePlayer();
-        updateEnemies();
-        updateCoins();
-        
-        // Draw game objects
+        // Run physics at fixed 60 steps/sec so speed is identical on all devices
+        let steps = 0;
+        while (accumulatedTime >= FIXED_DT && steps < MAX_PHYSICS_STEPS) {
+            updatePlatforms();
+            updatePlayer();
+            updateEnemies();
+            updateCoins();
+            accumulatedTime -= FIXED_DT;
+            steps++;
+        }
+        if (accumulatedTime > 0.5) accumulatedTime = 0; // avoid spiral after long pause
+
+        // Update level progress bar (after physics)
+        if (domProgressBar) {
+            domProgressBar.style.width = Math.min(100, (player.x / LEVEL_END) * 100) + '%';
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawBackground();
         drawPlatforms();
         drawCoins();
         drawEnemies();
         drawPlayer();
         drawMidAirJumpCooldown();
-        
+
         // Check if player reached end
         if (player.x > LEVEL_END) {
             level++;
@@ -1095,6 +1110,8 @@ document.getElementById('startBtn').addEventListener('click', () => {
     skipAirJumpThisFrame = false;
     currentJumpIsMidAir = false;
     midAirJumpCooldownRemaining = 0;
+    lastFrameTime = 0;      // So first frame uses FIXED_DT (consistent speed)
+    accumulatedTime = 0;
 
     // Apply selected character
     const ch = CHARACTERS[selectedCharacterIndex];
